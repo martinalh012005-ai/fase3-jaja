@@ -1,0 +1,48 @@
+# TDFI103 - Proyecto Semestral 2026 - Fase 2 - Caso 2
+# Levanta MySQL 8 (con el script integral cargado automáticamente) y el PMV en Streamlit.
+#   docker compose up --build
+#   -> http://localhost:8501   (usuario: admin / contraseña: Astro2026!)
+services:
+  db:
+    image: mysql:8.0
+    container_name: astro_db
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_astro_2026}
+      MYSQL_DATABASE: turismo_astronomico
+      MYSQL_USER: astro_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:-astro_app_2026}
+      TZ: America/Santiago
+    ports:
+      - "3307:3306"          # opcional: conectar MySQL Workbench a localhost:3307
+    volumes:
+      - db_data:/var/lib/mysql
+      # Los scripts de este directorio se ejecutan SOLO la primera vez (volumen vacío), en orden alfabético
+      - ./sql/script_integral.sql:/docker-entrypoint-initdb.d/10_script_integral.sql:ro
+      - ./docker/20_permisos_app.sql:/docker-entrypoint-initdb.d/20_permisos_app.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  app:
+    build: ./pmv
+    container_name: astro_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: turismo_astronomico
+      DB_USER: astro_app
+      DB_PASSWORD: ${DB_PASSWORD:-astro_app_2026}
+    ports:
+      - "8501:8501"
+
+volumes:
+  db_data:
